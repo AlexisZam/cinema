@@ -1,0 +1,150 @@
+apiVersion: skaffold/v4beta11
+kind: Config
+metadata:
+  name: ingress-nginx
+deploy:
+  helm:
+    releases:
+      - name: ingress-nginx
+        remoteChart: ingress-nginx
+        namespace: ingress-nginx
+        version: 4.10.1
+        createNamespace: true
+        repo: https://kubernetes.github.io/ingress-nginx
+# ---
+# apiVersion: skaffold/v4beta11
+# kind: Config
+# metadata:
+#   name: opensearch
+# deploy:
+#   helm:
+#     releases:
+#       - name: opensearch
+#         remoteChart: opensearch
+#         version: 2.22.0
+#         repo: https://opensearch-project.github.io/helm-charts
+#         setValues:
+#           extraEnvs:
+#             - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+#               value: "p@e7Pm5*4Ul7"
+# ---
+# apiVersion: skaffold/v4beta11
+# kind: Config
+# metadata:
+#   name: fluent-bit
+# requires:
+#   - configs:
+#       - opensearch
+# deploy:
+#   helm:
+#     releases:
+#       - name: fluent-bit
+#         remoteChart: fluent-bit
+#         version: 0.47.6
+#         repo: https://fluent.github.io/helm-charts
+#         setValues:
+#           config:
+#             inputs: |
+#               [INPUT]
+#                   Name tail
+#                   Path /var/log/pods/*.log
+#                   Tag kube.*
+#                   multiline.parser python
+#             outputs: |
+#               [OUTPUT]
+#                   Name opensearch
+#                   Match kube.*
+#                   Host opensearch-cluster-master
+#                   HTTP_User admin
+#                   HTTP_Passwd p@e7Pm5*4Ul7
+#                   Logstash_Format On
+#                   Suppress_Type_Name On
+#                   tls On
+#                   tls.verify Off
+# ---
+# apiVersion: skaffold/v4beta11
+# kind: Config
+# metadata:
+#   name: opensearch-dashboards
+# requires:
+#   - configs:
+#       - fluent-bit
+# deploy:
+#   helm:
+#     releases:
+#       - name: opensearch-dashboards
+#         remoteChart: opensearch-dashboards
+#         version: 2.20.0
+#         repo: https://opensearch-project.github.io/helm-charts
+---
+apiVersion: skaffold/v4beta11
+kind: Config
+requires:
+  - configs:
+      - ingress-nginx
+      # - opensearch-dashboards
+build:
+  artifacts:
+    - image: backend
+      docker:
+        dockerfile: ./backend/Dockerfile
+      requires:
+        - image: orm
+          alias: ORM
+      sync:
+        manual:
+          - src: backend/src/*
+            dest: /home/python/
+    # - image: pgadmin
+    #   docker:
+    #     dockerfile: pgadmin.Dockerfile
+    #     buildArgs:
+    #       ENV: development
+    - image: database
+      docker:
+        dockerfile: ./database/Dockerfile
+    - image: frontend
+      docker:
+        dockerfile: ./frontend/Dockerfile
+      sync:
+        manual:
+          - src: frontend/src/*
+            dest: /home/node/
+    - image: loaders
+      docker:
+        dockerfile: ./loaders/Dockerfile
+      requires:
+        - image: orm
+          alias: ORM
+    - image: orm
+      docker:
+        dockerfile: ./orm/Dockerfile
+  # tagPolicy:
+  # inputDigest: {}
+  local:
+    # tryImportMissing: true
+    useBuildkit: true
+    concurrency: 0
+deploy:
+  helm:
+    flags:
+      install:
+        - --atomic
+      upgrade:
+        - --atomic
+    releases:
+      - name: herlock
+        chartPath: chart
+        setValueTemplates:
+          backendImage: "{{.IMAGE_FULLY_QUALIFIED_backend}}"
+          databaseImage: "{{.IMAGE_FULLY_QUALIFIED_database}}"
+          frontendImage: "{{.IMAGE_FULLY_QUALIFIED_frontend}}"
+          loadersImage: "{{.IMAGE_FULLY_QUALIFIED_loaders}}"
+portForward:
+  - resourceType: service
+    resourceName: opensearch-dashboards
+    port: 5601
+  - resourceType: service
+    resourceName: ingress-nginx-controller
+    namespace: ingress-nginx
+    port: 80

@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: database
+  name: database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: database
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.service: database
+    spec:
+      containers:
+        - env:
+            - name: POSTGRES_PASSWORD_FILE
+              value: /etc/secrets/postgres-password
+          image: {{.Values.databaseImage}}
+          name: database
+          ports:
+            - containerPort: 5432
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /etc/secrets/
+              name: postgres-password
+            - mountPath: /var/lib/postgresql/data/
+              name: pgdata
+              subPath: pgdata
+      restartPolicy: Always
+      volumes:
+        - name: postgres-password
+          secret:
+            secretName: postgres-password
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: pgdata

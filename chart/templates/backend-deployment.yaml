@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  selector:
+    matchLabels:
+      io.kompose.service: backend
+  template:
+    metadata:
+      labels:
+        io.kompose.service: backend
+    spec:
+      containers:
+        - image: {{.Values.backendImage}}
+          name: backend
+          ports:
+            - containerPort: 8000
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /etc/secrets/
+              name: postgres-password
+      restartPolicy: Always
+      volumes:
+        - name: postgres-password
+          secret:
+            secretName: postgres-password

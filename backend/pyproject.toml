@@ -1,0 +1,9 @@
+[tool.poetry]
+package-mode = false
+
+[tool.poetry.dependencies]
+fastapi = { version = "0.112.0", extras = ["standard"] }
+fluent-logger = "0.11.1"
+geopy = "2.4.1"
+orm = { path = "../orm", develop = true }
+python = "3.13.1"

@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: loaders
+spec:
+  template:
+    spec:
+      containers:
+        - image: {{.Values.loadersImage}}
+          name: loaders
+          volumeMounts:
+            - mountPath: /etc/secrets
+              name: secrets
+      restartPolicy: OnFailure
+      volumes:
+        - name: secrets
+          projected:
+            sources:
+              - secret:
+                  name: maps-api-key
+              - secret:
+                  name: postgres-password

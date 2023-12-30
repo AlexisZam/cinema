@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  selector:
+    matchLabels:
+      io.kompose.service: frontend
+  template:
+    metadata:
+      labels:
+        io.kompose.service: frontend
+    spec:
+      containers:
+        - image: {{.Values.frontendImage}}
+          name: frontend
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+      restartPolicy: Always
